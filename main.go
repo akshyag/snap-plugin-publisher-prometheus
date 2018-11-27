@@ -20,13 +20,10 @@ limitations under the License.
 package main
 
 import (
-	"os"
-
 	"github.com/akshyag/snap-plugin-publisher-prometheus/prometheus"
-	"github.com/intelsdi-x/snap/control/plugin"
+	"github.com/intelsdi-x/snap-plugin-lib-go/v1/plugin"
 )
 
 func main() {
-	meta := prometheus.Meta()
-	plugin.Start(meta, prometheus.NewPrometheusPublisher(), os.Args[1])
+	plugin.StartPublisher(prometheus.NewPrometheusPublisher(), prometheus.Name, prometheus.Version)
 }
