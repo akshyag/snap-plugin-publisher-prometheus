@@ -14,6 +14,8 @@ import (
 	"time"
 
 	log "github.com/Sirupsen/logrus"
+	"github.com/prometheus/client_golang/prometheus"
+	"github.com/prometheus/client_golang/prometheus/push"
 
 	"github.com/intelsdi-x/snap/control/plugin"
 	"github.com/intelsdi-x/snap/control/plugin/cpolicy"
@@ -136,36 +138,35 @@ func (p *prometheusPublisher) Publish(contentType string, content []byte, config
 		return fmt.Errorf("Unknown content type '%s'", contentType)
 	}
 
-	client, err := selectClient(config)
 	promUrl, err := prometheusUrl(config)
 	if err != nil {
 		panic(err)
 	}
 
-	sendMetrics(config, promUrl, client, metrics)
+	sendMetrics(config, promUrl, metrics)
 	return nil
 }
 
-func sendMetrics(config map[string]ctypes.ConfigValue, promUrl *url.URL, client *clientConnection, metrics []plugin.MetricType) {
+func sendMetrics(config map[string]ctypes.ConfigValue, promUrl *url.URL, metrics []plugin.MetricType) {
 	logger := getLogger(config)
 	buf := new(bytes.Buffer)
-	for _, m := range metrics {
-		name, tags, value, ts := mangleMetric(m)
-		buf.WriteString(prometheusString(name, tags, value, ts))
-		buf.WriteByte('\n')
-	}
 
-	req, err := http.NewRequest("PUT", promUrl.String(), bytes.NewReader(buf.Bytes()))
-	req.Header.Set("Content-Type", "text/plain; version=0.0.4")
-	res, err := client.Conn.Do(req)
-	if err != nil {
-		logger.Error("Error sending data to Prometheus: %v", err)
-		return
-	}
-	defer res.Body.Close()
-	_, err = ioutil.ReadAll(res.Body)
-	if err != nil {
-		logger.Error("Error getting Prometheus response: %v", err)
+	for _, m := range metrics {
+		//Get name tags and value. ts is not used anymore in new prometheus pushgateway
+		name, tags, value, _ := mangleMetric(m)
+		metric := prometheus.NewGauge(prometheus.GaugeOpts{
+			Name: name,
+			Help: fmt.Sprintf("Collected metric %v", name),
+		})
+
+		metric.Set(value)
+
+		if err := push.New(promUrl, name).
+			Collector(metric).
+			GetTaggedPusher(tags).
+			Push(); err != nil {
+			logger.Error("Error pushing to Prometheus pushgatewa: %v %v %v", name, tags, value)
+		}
 	}
 }
 
@@ -237,49 +238,20 @@ func prometheusUrl(config map[string]ctypes.ConfigValue) (*url.URL, error) {
 		prefix = "https"
 	}
 
-	u, err := url.Parse(fmt.Sprintf("%s://%s:%d/metrics/job/unused", prefix, config["host"].(ctypes.ConfigValueStr).Value, config["port"].(ctypes.ConfigValueInt).Value))
+	u, err := url.Parse(fmt.Sprintf("%s://%s:%d", prefix, config["host"].(ctypes.ConfigValueStr).Value, config["port"].(ctypes.ConfigValueInt).Value))
 	if err != nil {
 		return nil, err
 	}
 	return u, nil
 }
 
-func selectClient(config map[string]ctypes.ConfigValue) (*clientConnection, error) {
-	// This is not an ideal way to get the logger but deferring solving this for a later date
-	logger := getLogger(config)
-
-	// Pool changes need to be safe (read & write) since the plugin can be called concurrently by snapteld.
-	m.Lock()
-	defer m.Unlock()
-
-	promUrl, err := prometheusUrl(config)
-	key := fmt.Sprintf("%s", promUrl.String())
-
-	// Do we have a existing client?
-	if clientPool[key] == nil {
-		// create one and add to the pool
-		con := &http.Client{}
-
-		if err != nil {
-			return nil, err
-		}
-
-		cCon := &clientConnection{
-			Key:      key,
-			Conn:     con,
-			LastUsed: time.Now(),
-		}
-		// Add to the pool
-		clientPool[key] = cCon
-
-		logger.Debug("Opening new Prometheus connection[", promUrl.String(), "]")
-		return clientPool[key], nil
+func (p *push.Pusher) GetTaggedPusher(tags map[string]string) *push.Pusher {
+	//Go through the tags and generate a pusher using Grouping method
+	tmpPusher := p
+	for k, v := range tags {
+		tmpPusher = tmpPusher.Grouping(k, v)
 	}
-	// Update when it was accessed
-	clientPool[key].LastUsed = time.Now()
-	// Return it
-	logger.Debug("Using open Prometheus connection[", promUrl.String(), "]")
-	return clientPool[key], nil
+	return tmpPusher
 }
 
 func getLogger(config map[string]ctypes.ConfigValue) *log.Entry {

@@ -1,6 +1,10 @@
-hash: 6d16e6060281bf91f8906fdb70b56e6b41d6bc5d4e623d1d2653bf72087b0028
-updated: 2017-06-21T13:10:12.442516753+03:00
+hash: 0e7479b0c590311005e0968151dfb7256a890cf5c2860f5c3365b0c1c6f68a63
+updated: 2018-11-27T12:30:55.146692777-08:00
 imports:
+- name: github.com/beorn7/perks
+  version: 3a771d992973f24aa725d07868b467d1ddfceafb
+  subpackages:
+  - quantile
 - name: github.com/golang/protobuf
   version: 1fb8fd32a09087bcd727225167edd31e1b9ceb24
   subpackages:
@@ -22,10 +26,36 @@ imports:
   - pkg/schedule
   - pkg/stringutils
   - scheduler/wmap
+- name: github.com/matttproud/golang_protobuf_extensions
+  version: c12348ce28de40eed0136aa2b644d0ee0650e56c
+  subpackages:
+  - pbutil
+- name: github.com/prometheus/client_golang
+  version: 32b1bb4674c4db541df5b547bb1a325337522022
+  subpackages:
+  - prometheus
+  - prometheus/internal
+  - prometheus/push
+- name: github.com/prometheus/client_model
+  version: 5c3871d89910bfb32f5fcab2aa4b9ec68e65a99f
+  subpackages:
+  - go
+- name: github.com/prometheus/common
+  version: 4724e9255275ce38f7179b2478abeae4e28c904f
+  subpackages:
+  - expfmt
+  - internal/bitbucket.org/ww/goautoneg
+  - model
+- name: github.com/prometheus/procfs
+  version: 619930b0b4713cc1280189bf0a4c54b3fb506f60
+  subpackages:
+  - internal/util
+  - nfs
+  - xfs
 - name: github.com/robfig/cron
   version: 32d9c273155a0506d27cf73dd1246e86a470997e
 - name: github.com/Sirupsen/logrus
-  version: cd7d1bbe41066b6c1f19780f895901052150a575
+  version: be52937128b38f1d99787bb476c789e2af1147f1
 - name: golang.org/x/sys
   version: 8d1157a435470616f975ff9bb013bea8d0962067
   subpackages:
